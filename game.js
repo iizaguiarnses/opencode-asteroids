@@ -118,6 +118,64 @@ class Asteroid {
   }
 }
 
+// ── ShootingStar (asteroide especial) ─────────────────────────────────────────
+class ShootingStar extends Asteroid {
+  constructor(x, y, size = 3) {
+    super(x, y, size);
+    this.isSpecial = true;
+    this.ttl = rand(1, 8);
+    this.speedMult = 2;
+    const baseSpeed = SPEEDS[size];
+    const angle = Math.atan2(this.vy, this.vx);
+    const speed = baseSpeed * this.speedMult + rand(-15, 15);
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+  }
+
+  update(dt) {
+    super.update(dt);
+    this.ttl -= dt;
+    if (this.ttl <= 0) this.dead = true;
+  }
+
+  split() {
+    return [];
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+
+    // Llamas rojas (trail)
+    ctx.strokeStyle = 'rgba(255, 50, 0, 0.6)';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-this.radius * 0.8, -this.radius * 0.2);
+    ctx.lineTo(-this.radius * 1.3, 0);
+    ctx.lineTo(-this.radius * 0.8, this.radius * 0.2);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Cuerpo naranja con contorno rojo
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.moveTo(this.verts[0][0], this.verts[0][1]);
+    for (let i = 1; i < this.verts.length; i++)
+      ctx.lineTo(this.verts[i][0], this.verts[i][1]);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
@@ -248,9 +306,10 @@ class PowerUp {
 
 // ── Partículas (explosión) ────────────────────────────────────────────────────
 class Particle {
-  constructor(x, y) {
+  constructor(x, y, color = '#fff') {
     this.x  = x;
     this.y  = y;
+    this.color = color;
     const angle = rand(0, Math.PI * 2);
     const speed = rand(30, 130);
     this.vx   = Math.cos(angle) * speed;
@@ -269,7 +328,9 @@ class Particle {
 
   draw() {
     const alpha = this.ttl / this.life;
-    ctx.strokeStyle = `rgba(255,255,255,${alpha.toFixed(2)})`;
+    const c = this.color;
+    const rgb = c.startsWith('#') ? [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)] : [255,255,255];
+    ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(2)})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
@@ -318,8 +379,8 @@ function nextLevel() {
   spawnAsteroids(3 + level);
 }
 
-function explode(x, y, count = 8) {
-  for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
+function explode(x, y, count = 8, color = '#fff') {
+  for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
 }
 
 function killShip() {
@@ -378,9 +439,10 @@ function update(dt) {
         b.dead = true;
         a.dead = true;
         score += POINTS[a.size];
-        explode(a.x, a.y, a.size * 5);
+        explode(a.x, a.y, a.size * 5, a.isSpecial ? '#ff6600' : '#fff');
         newAsteroids.push(...a.split());
         if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y));
+        if (Math.random() < 0.08) asteroids.push(new ShootingStar(a.x, a.y, a.size));
       }
     }
   }
