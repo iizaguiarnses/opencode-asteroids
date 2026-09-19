@@ -380,7 +380,7 @@ function update(dt) {
         score += POINTS[a.size];
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
-        if (Math.random() < 0.5) powerUps.push(new PowerUp(a.x, a.y));
+        if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y));
       }
     }
   }
