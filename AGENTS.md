@@ -30,3 +30,12 @@ No hay ningún paso de build, lint, typecheck ni test. Toda la lógica está en 
 - **Cancelación**: al morir (naves vs asteroide), el boost se cancela (`ship.speedBoostTimer = 0`). Al reaparecer la nave con invencibilidad, el boost está inactivo.
 - **HUD**: barra de progreso cian (#0ff) con label "VEL" aparece debajo del SCORE (14, 36) mientras el boost dura.
 - **Indicador visual**: la llama del propulsor de la nave cambia de naranja a azul brillante durante el boost.
+
+## Asteroide especial "Estrella fugaz"
+
+- **Drop de asteroides**: 8% de probabilidad al destruir un asteroide (bala vs asteroide). Aparece como un asteroide más rápido de lo normal (clase `ShootingStar` en `game.js`).
+- **Movimiento**: velocidad duplicada respecto a un asteroide normal del mismo tamaño.
+- **Desaparición por tiempo**: dura un tiempo aleatorio entre 1 y 8 segundos, luego desaparece automáticamente (no por colisión).
+- **Visual**: color naranja (#ff6600) con contorno rojo (#ff0000) y llamas rojas (trail naranja-rojo). Al destruirse genera partículas naranjas.
+- **No se divide**: a diferencia de los asteroides normales, no se parte en fragmentos al ser destruido.
+- **Spawn adicional**: el 8% de spawn ocurre independientemente del asteroide destruido (incluye otro ShootingStar).
