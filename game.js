@@ -192,6 +192,7 @@ class Ship {
     this.shootCooldown = 0;
     this.dead          = false;
     this.speedBoostTimer = 0;
+    this.tripleShotTimer = 0;
   }
 
   update(dt) {
@@ -201,6 +202,10 @@ class Ship {
     if (this.speedBoostTimer > 0) {
       this.speedBoostTimer -= dt;
       if (this.speedBoostTimer <= 0) this.speedBoostTimer = 0;
+    }
+    if (this.tripleShotTimer > 0) {
+      this.tripleShotTimer -= dt;
+      if (this.tripleShotTimer <= 0) this.tripleShotTimer = 0;
     }
 
     const ROT   = 3.5;   // rad/s
@@ -228,6 +233,14 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleShotTimer > 0) {
+      const SPREAD = 4 * Math.PI / 180; // 4°
+      return [
+        new Bullet(ox, oy, this.angle - SPREAD),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + SPREAD),
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -268,9 +281,10 @@ class Ship {
 
 // ── PowerUp ────────────────────────────────────────────────────────────────────
 class PowerUp {
-  constructor(x, y) {
+  constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.radius = 10;
     this.ttl = 10;
     this.dead = false;
@@ -288,18 +302,31 @@ class PowerUp {
     ctx.translate(this.x, this.y);
     const scale = 1 + Math.sin(this.pulse) * 0.15;
     ctx.scale(scale, scale);
-    ctx.strokeStyle = '#0ff';
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-7, 0);
-    ctx.lineTo(7, 0);
-    ctx.moveTo(0, -7);
-    ctx.lineTo(0, 7);
-    ctx.moveTo(-5, -5);
-    ctx.lineTo(5, 5);
-    ctx.moveTo(-5, 5);
-    ctx.lineTo(5, -5);
-    ctx.stroke();
+    ctx.lineCap = 'round';
+    if (this.type === 'triple') {
+      // Letra "T" (disparo triple)
+      ctx.strokeStyle = '#f0f';
+      ctx.beginPath();
+      ctx.moveTo(-7, -5);
+      ctx.lineTo(7, -5);
+      ctx.moveTo(0, -5);
+      ctx.lineTo(0, 7);
+      ctx.stroke();
+    } else {
+      // Relámpago / estallido (velocidad)
+      ctx.strokeStyle = '#0ff';
+      ctx.beginPath();
+      ctx.moveTo(-7, 0);
+      ctx.lineTo(7, 0);
+      ctx.moveTo(0, -7);
+      ctx.lineTo(0, 7);
+      ctx.moveTo(-5, -5);
+      ctx.lineTo(5, 5);
+      ctx.moveTo(-5, 5);
+      ctx.lineTo(5, -5);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -387,6 +414,7 @@ function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
   ship.speedBoostTimer = 0;
+  ship.tripleShotTimer = 0;
   lives--;
   if (lives <= 0) {
     state = 'gameover';
@@ -441,7 +469,8 @@ function update(dt) {
         score += POINTS[a.size];
         explode(a.x, a.y, a.size * 5, a.isSpecial ? '#ff6600' : '#fff');
         newAsteroids.push(...a.split());
-        if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y));
+        if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y, 'speed'));
+        if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y, 'triple'));
         if (Math.random() < 0.08) asteroids.push(new ShootingStar(a.x, a.y, a.size));
       }
     }
@@ -463,7 +492,8 @@ function update(dt) {
   for (const u of powerUps) {
     if (!u.dead && dist(ship, u) < ship.radius + u.radius) {
       u.dead = true;
-      ship.speedBoostTimer = 5;
+      if (u.type === 'triple') ship.tripleShotTimer = 5;
+      else ship.speedBoostTimer = 5;
     }
   }
 
@@ -502,25 +532,29 @@ function drawHUD() {
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
 
-  // Boost bar
-  if (ship && ship.speedBoostTimer > 0) {
-    const BAR_W = 150;
-    const BAR_H = 6;
-    const x = 14;
-    const y = 36;
-    const pct = ship.speedBoostTimer / 5;
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
-    ctx.fillRect(x, y, BAR_W, BAR_H);
-    ctx.fillStyle = '#0ff';
-    ctx.fillRect(x, y, BAR_W * pct, BAR_H);
-    ctx.strokeStyle = '#0ff';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(x, y, BAR_W, BAR_H);
-    ctx.fillStyle = '#fff';
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('VEL', x + 2, y + 5);
+  // Barras de power-ups activos
+  if (ship) {
+    if (ship.speedBoostTimer > 0) drawPowerBar(ship.speedBoostTimer, 36, '#0ff', 'VEL');
+    if (ship.tripleShotTimer > 0) drawPowerBar(ship.tripleShotTimer, 48, '#f0f', 'TRIPLE');
   }
+}
+
+function drawPowerBar(timer, y, color, label) {
+  const BAR_W = 150;
+  const BAR_H = 6;
+  const x = 14;
+  const pct = timer / 5;
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(x, y, BAR_W, BAR_H);
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, BAR_W * pct, BAR_H);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(x, y, BAR_W, BAR_H);
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x + 2, y + 5);
 }
 
 function drawOverlay(title, sub) {
