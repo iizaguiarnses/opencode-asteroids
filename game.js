@@ -5,6 +5,79 @@ const ctx = canvas.getContext('2d');
 const W = 800;
 const H = 600;
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+const SKINS = [
+  { id: 'classic', name: 'CLÁSICO',
+    verts: [[20,0],[-12,-9],[-7,0],[-12,9]],
+    nose: 21,
+    flame: { fromX: -8, fromY: 4, back: 14 },
+    stroke: '#fff', fill: 'transparent',
+    flameColor: 'rgba(255,130,0,0.85)', boostFlame: 'rgba(0,200,255,0.95)' },
+  { id: 'cyan-lance', name: 'LANCE CIAN',
+    verts: [[24,0],[4,-5],[-14,-2],[-4,0],[-14,2],[4,5]],
+    nose: 25,
+    flame: { fromX: -4, fromY: 1.5, back: 16 },
+    stroke: '#0ff', fill: 'rgba(0,255,255,0.2)',
+    flameColor: 'rgba(0,200,255,0.9)', boostFlame: 'rgba(255,255,255,0.95)' },
+  { id: 'naranja-wing', name: 'ALAS NARANJA',
+    verts: [[22,0],[-14,-12],[-8,-4],[-8,4],[-14,12]],
+    nose: 23,
+    flame: { fromX: -8, fromY: 4, back: 14 },
+    stroke: '#ff8800', fill: 'rgba(255,136,0,0.3)',
+    flameColor: 'rgba(255,200,0,0.95)', boostFlame: 'rgba(0,255,255,0.95)' },
+  { id: 'verde-delta', name: 'DELTA VERDE',
+    verts: [[22,0],[-12,-10],[-14,0],[-12,10]],
+    nose: 23,
+    flame: { fromX: -10, fromY: 5, back: 14 },
+    stroke: '#0f0', fill: 'rgba(0,255,0,0.25)',
+    accent: '#00ff88',
+    accentLines: [[[-12,-10],[4,-4]], [[-12,10],[4,4]]],
+    flameColor: 'rgba(50,255,100,0.9)', boostFlame: 'rgba(255,255,0,0.95)' },
+  { id: 'rojo-cross', name: 'CRUZ ROJA',
+    verts: [[22,0],[-10,-10],[-4,-3],[-14,-6],[-7,0],[-14,6],[-10,10]],
+    nose: 23,
+    flame: { fromX: -7, fromY: 3, back: 14 },
+    stroke: '#ff3333', fill: 'rgba(255,0,0,0.2)',
+    flameColor: 'rgba(255,80,80,0.9)', boostFlame: 'rgba(255,200,0,0.95)' },
+  { id: 'dorado-rocket', name: 'COHETE DORADO',
+    verts: [[24,0],[14,-7],[-8,-7],[-14,-3],[-14,3],[-8,7],[14,7]],
+    nose: 25,
+    flame: { fromX: -10, fromY: 4, back: 14 },
+    stroke: '#ffd700', fill: 'rgba(255,215,0,0.3)',
+    window: [6, 0, 3],
+    flameColor: 'rgba(255,180,0,0.9)', boostFlame: 'rgba(255,100,255,0.95)' },
+];
+
+let currentSkinIndex = 0;
+let skinChangeTimer = 0;
+
+// ── Skins persistencia ────────────────────────────────────────────────────────
+const SKIN_KEY = 'asteroids.skin.current';
+const UNLOCKED_KEY = 'asteroids.skin.unlocked';
+
+function loadSkin() {
+  try {
+    const saved = parseInt(localStorage.getItem(SKIN_KEY), 10);
+    if (!isNaN(saved) && saved >= 0 && saved < SKINS.length) currentSkinIndex = saved;
+  } catch (e) {}
+  try {
+    let unlocked = JSON.parse(localStorage.getItem(UNLOCKED_KEY) || '[]');
+    if (!Array.isArray(unlocked)) unlocked = [];
+    for (let i = 0; i < SKINS.length; i++) if (!unlocked.includes(i)) unlocked.push(i);
+    localStorage.setItem(UNLOCKED_KEY, JSON.stringify(unlocked));
+  } catch (e) {}
+}
+
+function saveSkin() {
+  try { localStorage.setItem(SKIN_KEY, String(currentSkinIndex)); } catch (e) {}
+}
+
+function cycleSkin() {
+  currentSkinIndex = (currentSkinIndex + 1) % SKINS.length;
+  saveSkin();
+  skinChangeTimer = 1.5;
+}
+
 // ── Input ─────────────────────────────────────────────────────────────────────
 const keys = {};
 const justPressed = {};
@@ -12,7 +85,7 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
   justPressed[e.code] = !keys[e.code];
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ'].includes(e.code))
     e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -225,7 +298,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = SKINS[currentSkinIndex].nose;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     return [new Bullet(ox, oy, this.angle)];
@@ -236,29 +309,51 @@ class Ship {
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
+    const skin = SKINS[currentSkinIndex];
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
-    // Silueta clásica: triángulo con muesca trasera
     ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
+    ctx.moveTo(skin.verts[0][0], skin.verts[0][1]);
+    for (let i = 1; i < skin.verts.length; i++)
+      ctx.lineTo(skin.verts[i][0], skin.verts[i][1]);
     ctx.closePath();
+    if (skin.fill && skin.fill !== 'transparent') {
+      ctx.fillStyle = skin.fill;
+      ctx.fill();
+    }
     ctx.stroke();
 
-    // Llama del propulsor (azul durante boost)
+    if (skin.window) {
+      const [wx, wy, wr] = skin.window;
+      ctx.beginPath();
+      ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (skin.accentLines) {
+      ctx.strokeStyle = skin.accent;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      for (const line of skin.accentLines) {
+        ctx.moveTo(line[0][0], line[0][1]);
+        ctx.lineTo(line[1][0], line[1][1]);
+      }
+      ctx.stroke();
+    }
+
+    // Llama del propulsor (usa colores del skin)
     if (this.thrusting && Math.random() > 0.35) {
       ctx.beginPath();
-      ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
-      ctx.lineTo(-8,  4);
-      ctx.strokeStyle = this.speedBoostTimer > 0 ? 'rgba(0, 200, 255, 0.95)' : 'rgba(255, 130, 0, 0.85)';
+      ctx.moveTo(skin.flame.fromX, -skin.flame.fromY);
+      ctx.lineTo(skin.flame.fromX - rand(6, skin.flame.back), 0);
+      ctx.lineTo(skin.flame.fromX, skin.flame.fromY);
+      ctx.strokeStyle = this.speedBoostTimer > 0 ? skin.boostFlame : skin.flameColor;
+      ctx.lineWidth   = 1.5;
       ctx.stroke();
     }
 
@@ -405,6 +500,9 @@ function update(dt) {
     return;
   }
 
+  if (skinChangeTimer > 0) skinChangeTimer -= dt;
+  if (pressed('KeyQ')) cycleSkin();
+
   if (state === 'dead') {
     deadTimer -= dt;
     particles.forEach(p => p.update(dt));
@@ -473,17 +571,18 @@ function update(dt) {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
+  const skin = SKINS[currentSkinIndex];
+  const scale = 0.45;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = skin.stroke;
   ctx.lineWidth   = 1.2;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
+  ctx.moveTo(skin.verts[0][0] * scale, skin.verts[0][1] * scale);
+  for (let i = 1; i < skin.verts.length; i++)
+    ctx.lineTo(skin.verts[i][0] * scale, skin.verts[i][1] * scale);
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
@@ -521,6 +620,18 @@ function drawHUD() {
     ctx.textAlign = 'left';
     ctx.fillText('VEL', x + 2, y + 5);
   }
+
+  // Flash del nombre del skin al cambiar
+  if (skinChangeTimer > 0) {
+    const alpha = Math.min(1, skinChangeTimer / 0.5);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(2)})`;
+    ctx.fillText(`SKIN: ${SKINS[currentSkinIndex].name}`, W / 2, 80);
+    ctx.font = '12px monospace';
+    ctx.fillStyle = `rgba(255,255,255,${(alpha * 0.7).toFixed(2)})`;
+    ctx.fillText('Q: CAMBIAR', W / 2, 98);
+  }
 }
 
 function drawOverlay(title, sub) {
@@ -546,7 +657,7 @@ function draw() {
   drawHUD();
 
   if (state === 'gameover')
-    drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO PARA REINICIAR`);
+    drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO: REINICIAR   —   Q: CAMBIAR SKIN`);
 }
 
 // ── Loop principal ────────────────────────────────────────────────────────────
@@ -560,5 +671,6 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
+loadSkin();
 initGame();
 requestAnimationFrame(loop);

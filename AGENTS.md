@@ -39,3 +39,14 @@ No hay ningún paso de build, lint, typecheck ni test. Toda la lógica está en 
 - **Visual**: color naranja (#ff6600) con contorno rojo (#ff0000) y llamas rojas (trail naranja-rojo). Al destruirse genera partículas naranjas.
 - **No se divide**: a diferencia de los asteroides normales, no se parte en fragmentos al ser destruido.
 - **Spawn adicional**: el 8% de spawn ocurre independientemente del asteroide destruido (incluye otro ShootingStar).
+
+## Sistema de skins
+
+- **Rotación**: tecla `Q` durante el juego rota al siguiente skin disponible. Funciona en estados `playing` y `dead`, no en `gameover`.
+- **Disponibilidad**: las 6 skins están disponibles desde el inicio, sin progresión ni desbloqueo.
+- **Definición** (array `SKINS` en `game.js`): cada skin define `id`, `name`, `verts` (polígono), `nose` (posición del cañón), `flame` (geometría del propulsor), `stroke`/`fill` (colores), y opcionalmente `accent`/`accentLines`/`window` para detalles visuales.
+- **Skins actuales**: `classic` (blanco), `cyan-lance` (cian), `naranja-wing` (naranja), `verde-delta` (verde con acento), `rojo-cross` (rojo), `dorado-rocket` (dorado con ventana).
+- **Persistencia**: `localStorage` guarda `asteroids.skin.current` (índice del skin actual) y `asteroids.skin.unlocked` (array de índices desbloqueados, siempre `[0..5]`). Se carga al iniciar con `loadSkin()`; si el valor guardado es inválido, se usa el índice 0.
+- **HUD**: al cambiar de skin aparece un flash centrado con `SKIN: <NOMBRE>` (22px bold) y `Q: CAMBIAR` (12px), con fade-out de 1.5 segundos (alpha proporcional al timer).
+- **Nave y balas**: `Ship.draw()` usa `verts`, `fill`, `stroke` y `flame` del skin. `tryShoot()` usa `SKINS[currentSkinIndex].nose` en lugar de un valor fijo. La llama del propulsor usa `flameColor` normal y `boostFlame` durante el boost.
+- **Íconos de vidas**: `drawLifeIcon()` dibuja la silueta del skin actual en miniatura (escala 0.45x) con su color de `stroke`.
