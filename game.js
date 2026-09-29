@@ -46,6 +46,13 @@ const SKINS = [
     stroke: '#ffd700', fill: 'rgba(255,215,0,0.3)',
     window: [6, 0, 3],
     flameColor: 'rgba(255,180,0,0.9)', boostFlame: 'rgba(255,100,255,0.95)' },
+  { id: 'morada-gigante', name: 'MORADA GIGANTE',
+    verts: [[40,0],[-24,-18],[-14,0],[-24,18]],
+    nose: 42,
+    flame: { fromX: -16, fromY: 8, back: 28 },
+    stroke: '#b026ff', fill: 'rgba(176,38,255,0.3)',
+    flameColor: 'rgba(200,100,255,0.9)', boostFlame: 'rgba(0,255,255,0.95)',
+    scale: 2, scoreMult: 2 },
 ];
 
 let currentSkinIndex = 0;
@@ -76,6 +83,16 @@ function cycleSkin() {
   currentSkinIndex = (currentSkinIndex + 1) % SKINS.length;
   saveSkin();
   skinChangeTimer = 1.5;
+  if (typeof ship !== 'undefined' && ship) ship.radius = 12 * shipScale();
+}
+
+// ── Helpers de skin ─────────────────────────────────────────────────────────────
+function shipScale() {
+  return SKINS[currentSkinIndex].scale || 1;
+}
+
+function scoreMult() {
+  return SKINS[currentSkinIndex].scoreMult || 1;
 }
 
 // ── Input ─────────────────────────────────────────────────────────────────────
@@ -259,7 +276,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * shipScale();
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -272,6 +289,7 @@ class Ship {
 
   update(dt) {
     if (this.dead) return;
+    this.radius = 12 * shipScale();
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoostTimer > 0) {
@@ -326,7 +344,7 @@ class Ship {
     // Escudo activo (sin rotar con la nave, visible incluso durante el parpadeo de invencibilidad)
     if (this.shieldActive) {
       const pulse = Math.sin(this.shieldPulse) * 2;
-      const R = 28 + pulse;
+      const R = 28 * shipScale() + pulse;
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.strokeStyle = 'rgba(170, 68, 255, 0.28)';
@@ -505,9 +523,10 @@ class Particle {
 
 // ── ShieldBurst (efecto de absorción del escudo) ───────────────────────────────
 class ShieldBurst {
-  constructor(x, y) {
+  constructor(x, y, baseR = 28) {
     this.x = x;
     this.y = y;
+    this.baseR = baseR;
     this.ttl  = 0.35;
     this.life = 0.35;
     this.dead = false;
@@ -520,7 +539,7 @@ class ShieldBurst {
 
   draw() {
     const t = this.ttl / this.life;          // 1 → 0
-    const radius = 28 + (1 - t) * 32;         // 28 → 60
+    const radius = this.baseR + (1 - t) * 32; // baseR → baseR+32
     ctx.strokeStyle = `rgba(170, 68, 255, ${(t * 0.85).toFixed(3)})`;
     ctx.lineWidth = 1.5 + (1 - t) * 2;
     ctx.beginPath();
@@ -643,7 +662,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * scoreMult();
         explode(a.x, a.y, a.size * 5, a.isSpecial ? '#ff6600' : '#fff');
         newAsteroids.push(...a.split());
         if (Math.random() < 0.08) powerUps.push(new PowerUp(a.x, a.y, 'speed'));
@@ -658,13 +677,13 @@ function update(dt) {
 
   // Nave vs asteroide (el escudo absorbe primero)
   if (ship.shieldActive) {
-    const SHIELD_R = 28;
+    const SHIELD_R = 28 * shipScale();
     for (const a of asteroids) {
       if (!a.dead && dist(ship, a) < SHIELD_R + a.radius * 0.82) {
         a.dead = true;
         ship.shieldActive = false;
         explode(a.x, a.y, 25, '#aa44ff');
-        shieldBursts.push(new ShieldBurst(a.x, a.y));
+        shieldBursts.push(new ShieldBurst(a.x, a.y, SHIELD_R));
         break;
       }
     }
@@ -695,7 +714,7 @@ function update(dt) {
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
   const skin = SKINS[currentSkinIndex];
-  const scale = 0.45;
+  const scale = 0.45 / (skin.scale || 1);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
@@ -717,6 +736,11 @@ function drawHUD() {
 
   ctx.textAlign = 'left';
   ctx.fillText(`SCORE  ${score}`, 14, 26);
+  if (scoreMult() > 1) {
+    ctx.fillStyle = SKINS[currentSkinIndex].stroke;
+    ctx.fillText(`x${scoreMult()}`, 14 + ctx.measureText(`SCORE  ${score}`).width + 8, 26);
+    ctx.fillStyle = '#fff';
+  }
 
   ctx.textAlign = 'center';
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);

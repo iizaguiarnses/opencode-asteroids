@@ -68,10 +68,18 @@ No hay ningún paso de build, lint, typecheck ni test. Toda la lógica está en 
 ## Sistema de skins
 
 - **Rotación**: tecla `Q` durante el juego rota al siguiente skin disponible. Funciona en estados `playing` y `dead`, no en `gameover`.
-- **Disponibilidad**: las 6 skins están disponibles desde el inicio, sin progresión ni desbloqueo.
-- **Definición** (array `SKINS` en `game.js`): cada skin define `id`, `name`, `verts` (polígono), `nose` (posición del cañón), `flame` (geometría del propulsor), `stroke`/`fill` (colores), y opcionalmente `accent`/`accentLines`/`window` para detalles visuales.
-- **Skins actuales**: `classic` (blanco), `cyan-lance` (cian), `naranja-wing` (naranja), `verde-delta` (verde con acento), `rojo-cross` (rojo), `dorado-rocket` (dorado con ventana).
-- **Persistencia**: `localStorage` guarda `asteroids.skin.current` (índice del skin actual) y `asteroids.skin.unlocked` (array de índices desbloqueados, siempre `[0..5]`). Se carga al iniciar con `loadSkin()`; si el valor guardado es inválido, se usa el índice 0.
+- **Disponibilidad**: las 7 skins están disponibles desde el inicio, sin progresión ni desbloqueo.
+- **Definición** (array `SKINS` en `game.js`): cada skin define `id`, `name`, `verts` (polígono), `nose` (posición del cañón), `flame` (geometría del propulsor), `stroke`/`fill` (colores), y opcionalmente `accent`/`accentLines`/`window` para detalles visuales. Las skins pueden definir `scale` (multiplicador de tamaño/colisión, por defecto 1) y `scoreMult` (multiplicador de puntos, por defecto 1) — ver "Nave morada gigante".
+- **Skins actuales**: `classic` (blanco), `cyan-lance` (cian), `naranja-wing` (naranja), `verde-delta` (verde con acento), `rojo-cross` (rojo), `dorado-rocket` (dorado con ventana), `morada-gigante` (morada, doble tamaño, doble puntos).
+- **Persistencia**: `localStorage` guarda `asteroids.skin.current` (índice del skin actual) y `asteroids.skin.unlocked` (array de índices desbloqueados, siempre `[0..6]`). Se carga al iniciar con `loadSkin()`; si el valor guardado es inválido, se usa el índice 0.
 - **HUD**: al cambiar de skin aparece un flash centrado con `SKIN: <NOMBRE>` (22px bold) y `Q: CAMBIAR` (12px), con fade-out de 1.5 segundos (alpha proporcional al timer).
 - **Nave y balas**: `Ship.draw()` usa `verts`, `fill`, `stroke` y `flame` del skin. `tryShoot()` usa `SKINS[currentSkinIndex].nose` en lugar de un valor fijo. La llama del propulsor usa `flameColor` normal y `boostFlame` durante el boost.
 - **Íconos de vidas**: `drawLifeIcon()` dibuja la silueta del skin actual en miniatura (escala 0.45x) con su color de `stroke`.
+
+## Nave morada gigante (doble puntos)
+
+- **Skin**: `morada-gigante` (`MORADA GIGANTE`) en `SKINS`: color morado (`stroke` `#b026ff`, `fill` púrpura translúcido). Se rota con `Q` como el resto.
+- **Tamaño**: el doble que la nave original: `verts` [[40,0],[-24,-18],[-14,0],[-24,18]] (clásico ×2), `nose: 42`, `flame` escalada (`fromX: -16, fromY: 8, back: 28`), `scale: 2`.
+- **Colisión**: `Ship.reset()` y `Ship.update()` fijan `ship.radius = 12 * shipScale()` (12 normal, 24 con la morada); `cycleSkin()` lo resincroniza al cambiar en caliente. El radio del escudo escala igual (`28 * shipScale()`, 56 con la morada) en `Ship.draw()`, en la colisión nave-vs-asteroide y en `ShieldBurst(baseR)`.
+- **Puntos dobles**: `scoreMult()` devuelve `skin.scoreMult || 1` (2 con la morada); la colisión bala-vs-asteroide suma `POINTS[size] * scoreMult()`. El HUD muestra `x2` junto al `SCORE` con el color del skin mientras está activa.
+- **Íconos de vidas**: `drawLifeIcon()` compensa con `0.45 / (skin.scale || 1)` para que el HUD no crezca con la nave grande.
